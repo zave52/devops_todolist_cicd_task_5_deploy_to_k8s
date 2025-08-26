@@ -1,0 +1,82 @@
+name: helm-deploy
+run-name: ${{ github.actor }} - ${{ github.ref_name }}
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        description: 'Environment to deploy to'
+        type: string
+      version:
+        required: true
+        description: 'Version of the image to deploy'
+        type: string
+      helm-values-path:
+        default: './todoapp/values.yaml'
+        description: 'Path to the Helm values file'
+        type: string
+      helm-release-name:
+        default: todoapp
+        description: 'Name of the Helm release'
+        type: string
+
+jobs:
+  deploy-helm:
+    name: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Download Helm package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-package
+          path: .
+
+      - name: Download Helm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-artifacts
+          path: .
+
+      - name: Download cluster config artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: cluster-config
+          path: .
+
+      - name: Create k8s kind cluster
+        uses: helm/kind-action@v1
+        with:
+          config: cluster.yml
+
+      - name: Set Up Helm
+        uses: azure/setup-helm@4.3.0
+
+      - name: Validation Helm chart
+        run: |
+          helm install --dry-run ${{ inputs.helm-release-name }} ./todoapp-*.tgz \
+          -f ${{ inputs.helm-values-path }} \
+          --set mysql.secrets.MYSQL_ROOT_PASSWORD="${{ secrets.MYSQL_ROOT_PASSWORD }}" \
+          --set mysql.secrets.MYSQL_USER="${{ secrets.MYSQL_USER }}" \
+          --set mysql.secrets.MYSQL_PASSWORD="${{ secrets.MYSQL_PASSWORD }}" \
+          --set todoapp.secrets.SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+          --set todoapp.secrets.DB_NAME="${{ secrets.DB_NAME }}" \
+          --set todoapp.secrets.DB_USER="${{ secrets.DB_USER }}" \
+          --set todoapp.secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+          --set todoapp.secrets.DB_HOST="${{ secrets.DB_HOST }}"
+
+      - name: Deploy Helm chart
+        run: |
+          helm upgrade --install --atomic --wait --timeout 3600s --debug ${{ inputs.helm-release-name }} ./todoapp-*.tgz \
+          -f ${{ inputs.helm-values-path }} \
+          --set mysql.secrets.MYSQL_ROOT_PASSWORD="${{ secrets.MYSQL_ROOT_PASSWORD }}" \
+          --set mysql.secrets.MYSQL_USER="${{ secrets.MYSQL_USER }}" \
+          --set mysql.secrets.MYSQL_PASSWORD="${{ secrets.MYSQL_PASSWORD }}" \
+          --set todoapp.secrets.SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+          --set todoapp.secrets.DB_NAME="${{ secrets.DB_NAME }}" \
+          --set todoapp.secrets.DB_USER="${{ secrets.DB_USER }}" \
+          --set todoapp.secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+          --set todoapp.secrets.DB_HOST="${{ secrets.DB_HOST }}" \
+          --set todoapp.image.tag="${{ inputs.version }}"
