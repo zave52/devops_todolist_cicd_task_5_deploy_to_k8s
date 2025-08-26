@@ -8,6 +8,11 @@ on:
         required: true
         description: 'Environment to deploy to'
         type: string
+      repository:
+        required: false
+        description: 'Name of the docker repository'
+        default: zaavee/todoapp
+        type: string
       version:
         required: true
         description: 'Version of the image to deploy'
@@ -65,7 +70,9 @@ jobs:
           --set todoapp.secrets.DB_NAME="${{ secrets.DB_NAME }}" \
           --set todoapp.secrets.DB_USER="${{ secrets.DB_USER }}" \
           --set todoapp.secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
-          --set todoapp.secrets.DB_HOST="${{ secrets.DB_HOST }}"
+          --set todoapp.secrets.DB_HOST="${{ secrets.DB_HOST }}" \
+          --set todoapp.image.repository="${{ inputs.repository }}" \
+          --set todoapp.image.tag="${{ inputs.version }}"
 
       - name: Deploy Helm chart
         run: |
@@ -79,4 +86,5 @@ jobs:
           --set todoapp.secrets.DB_USER="${{ secrets.DB_USER }}" \
           --set todoapp.secrets.DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
           --set todoapp.secrets.DB_HOST="${{ secrets.DB_HOST }}" \
+          --set todoapp.image.repository="${{ inputs.repository }}" \
           --set todoapp.image.tag="${{ inputs.version }}"
